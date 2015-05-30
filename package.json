@@ -1,0 +1,23 @@
+{
+  "name": "application-name",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "start": "node app.js"
+  },
+  "dependencies": {
+    "domready": "^1.0.8",
+    "ejs": "*",
+    "express": "3.4.3"
+  },
+  "devDependencies": {
+    "browserify": "^10.2.3",
+    "chai": "^2.3.0",
+    "gulp": "^3.8.11",
+    "gulp-mocha-phantomjs": "^0.6.1",
+    "mocha": "^2.2.5",
+    "phantomjs": "^1.9.17",
+    "should": "^6.0.3",
+    "vinyl-source-stream": "^1.1.0"
+  }
+}
