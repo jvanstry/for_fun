@@ -26,8 +26,6 @@ MouseEventList.prototype.display = function(){
     var appendPoint = document.getElementById("event-list");
     var listNode = tooltip.toListNode();
 
-    console.log(listNode, "LIST NODE");
-
     appendPoint.appendChild(listNode);
   });
 }

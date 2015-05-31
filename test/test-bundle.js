@@ -1,6 +1,10 @@
 (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
-require('./client/mouse-events.js');
-},{"./client/mouse-events.js":41}],2:[function(require,module,exports){
+
+require('./setup.js')
+require('./client/first-mouseover-spec.js');
+require('./client/first-mouseout-spec.js');
+
+},{"./client/first-mouseout-spec.js":45,"./client/first-mouseover-spec.js":46,"./setup.js":47}],2:[function(require,module,exports){
 /*!
  * The buffer module from node.js, for the browser.
  *
@@ -6980,36 +6984,316 @@ Library.prototype.test = function (obj, type) {
 };
 
 },{}],41:[function(require,module,exports){
-require('../setup.js');
 
-function triggerEvent(target, eventName){
-  var event = document.createEvent('Event');
-  event.initEvent(eventName, true, true);
-  target.dispatchEvent(event);
+var synth = require('synthetic-dom-events');
+
+var on = function(element, name, fn, capture) {
+    return element.addEventListener(name, fn, capture || false);
+};
+
+var off = function(element, name, fn, capture) {
+    return element.removeEventListener(name, fn, capture || false);
+};
+
+var once = function (element, name, fn, capture) {
+    function tmp (ev) {
+        off(element, name, tmp, capture);
+        fn(ev);
+    }
+    on(element, name, tmp, capture);
+};
+
+var emit = function(element, name, opt) {
+    var ev = synth(name, opt);
+    element.dispatchEvent(ev);
+};
+
+if (!document.addEventListener) {
+    on = function(element, name, fn) {
+        return element.attachEvent('on' + name, fn);
+    };
 }
 
-var targets, target1, target1Rect, target3, target3Rect;
+if (!document.removeEventListener) {
+    off = function(element, name, fn) {
+        return element.detachEvent('on' + name, fn);
+    };
+}
 
-describe('after first mouseOver', function(){
-  var tooltip, tooltipRect;
+if (!document.dispatchEvent) {
+    emit = function(element, name, opt) {
+        var ev = synth(name, opt);
+        return element.fireEvent('on' + ev.type, ev);
+    };
+}
 
+module.exports = {
+    on: on,
+    off: off,
+    once: once,
+    emit: emit
+};
+
+},{"synthetic-dom-events":42}],42:[function(require,module,exports){
+
+// for compression
+var win = window;
+var doc = document || {};
+var root = doc.documentElement || {};
+
+// detect if we need to use firefox KeyEvents vs KeyboardEvents
+var use_key_event = true;
+try {
+    doc.createEvent('KeyEvents');
+}
+catch (err) {
+    use_key_event = false;
+}
+
+// Workaround for https://bugs.webkit.org/show_bug.cgi?id=16735
+function check_kb(ev, opts) {
+    if (ev.ctrlKey != (opts.ctrlKey || false) ||
+        ev.altKey != (opts.altKey || false) ||
+        ev.shiftKey != (opts.shiftKey || false) ||
+        ev.metaKey != (opts.metaKey || false) ||
+        ev.keyCode != (opts.keyCode || 0) ||
+        ev.charCode != (opts.charCode || 0)) {
+
+        ev = document.createEvent('Event');
+        ev.initEvent(opts.type, opts.bubbles, opts.cancelable);
+        ev.ctrlKey  = opts.ctrlKey || false;
+        ev.altKey   = opts.altKey || false;
+        ev.shiftKey = opts.shiftKey || false;
+        ev.metaKey  = opts.metaKey || false;
+        ev.keyCode  = opts.keyCode || 0;
+        ev.charCode = opts.charCode || 0;
+    }
+
+    return ev;
+}
+
+// modern browsers, do a proper dispatchEvent()
+var modern = function(type, opts) {
+    opts = opts || {};
+
+    // which init fn do we use
+    var family = typeOf(type);
+    var init_fam = family;
+    if (family === 'KeyboardEvent' && use_key_event) {
+        family = 'KeyEvents';
+        init_fam = 'KeyEvent';
+    }
+
+    var ev = doc.createEvent(family);
+    var init_fn = 'init' + init_fam;
+    var init = typeof ev[init_fn] === 'function' ? init_fn : 'initEvent';
+
+    var sig = initSignatures[init];
+    var args = [];
+    var used = {};
+
+    opts.type = type;
+    for (var i = 0; i < sig.length; ++i) {
+        var key = sig[i];
+        var val = opts[key];
+        // if no user specified value, then use event default
+        if (val === undefined) {
+            val = ev[key];
+        }
+        used[key] = true;
+        args.push(val);
+    }
+    ev[init].apply(ev, args);
+
+    // webkit key event issue workaround
+    if (family === 'KeyboardEvent') {
+        ev = check_kb(ev, opts);
+    }
+
+    // attach remaining unused options to the object
+    for (var key in opts) {
+        if (!used[key]) {
+            ev[key] = opts[key];
+        }
+    }
+
+    return ev;
+};
+
+var legacy = function (type, opts) {
+    opts = opts || {};
+    var ev = doc.createEventObject();
+
+    ev.type = type;
+    for (var key in opts) {
+        if (opts[key] !== undefined) {
+            ev[key] = opts[key];
+        }
+    }
+
+    return ev;
+};
+
+// expose either the modern version of event generation or legacy
+// depending on what we support
+// avoids if statements in the code later
+module.exports = doc.createEvent ? modern : legacy;
+
+var initSignatures = require('./init.json');
+var types = require('./types.json');
+var typeOf = (function () {
+    var typs = {};
+    for (var key in types) {
+        var ts = types[key];
+        for (var i = 0; i < ts.length; i++) {
+            typs[ts[i]] = key;
+        }
+    }
+
+    return function (name) {
+        return typs[name] || 'Event';
+    };
+})();
+
+},{"./init.json":43,"./types.json":44}],43:[function(require,module,exports){
+module.exports={
+  "initEvent" : [
+    "type",
+    "bubbles",
+    "cancelable"
+  ],
+  "initUIEvent" : [
+    "type",
+    "bubbles",
+    "cancelable",
+    "view",
+    "detail"
+  ],
+  "initMouseEvent" : [
+    "type",
+    "bubbles",
+    "cancelable",
+    "view",
+    "detail",
+    "screenX",
+    "screenY",
+    "clientX",
+    "clientY",
+    "ctrlKey",
+    "altKey",
+    "shiftKey",
+    "metaKey",
+    "button",
+    "relatedTarget"
+  ],
+  "initMutationEvent" : [
+    "type",
+    "bubbles",
+    "cancelable",
+    "relatedNode",
+    "prevValue",
+    "newValue",
+    "attrName",
+    "attrChange"
+  ],
+  "initKeyboardEvent" : [
+    "type",
+    "bubbles",
+    "cancelable",
+    "view",
+    "ctrlKey",
+    "altKey",
+    "shiftKey",
+    "metaKey",
+    "keyCode",
+    "charCode"
+  ],
+  "initKeyEvent" : [
+    "type",
+    "bubbles",
+    "cancelable",
+    "view",
+    "ctrlKey",
+    "altKey",
+    "shiftKey",
+    "metaKey",
+    "keyCode",
+    "charCode"
+  ]
+}
+
+},{}],44:[function(require,module,exports){
+module.exports={
+  "MouseEvent" : [
+    "click",
+    "mousedown",
+    "mouseup",
+    "mouseover",
+    "mousemove",
+    "mouseout"
+  ],
+  "KeyboardEvent" : [
+    "keydown",
+    "keyup",
+    "keypress"
+  ],
+  "MutationEvent" : [
+    "DOMSubtreeModified",
+    "DOMNodeInserted",
+    "DOMNodeRemoved",
+    "DOMNodeRemovedFromDocument",
+    "DOMNodeInsertedIntoDocument",
+    "DOMAttrModified",
+    "DOMCharacterDataModified"
+  ],
+  "HTMLEvents" : [
+    "load",
+    "unload",
+    "abort",
+    "error",
+    "select",
+    "change",
+    "submit",
+    "reset",
+    "focus",
+    "blur",
+    "resize",
+    "scroll"
+  ],
+  "UIEvent" : [
+    "DOMFocusIn",
+    "DOMFocusOut",
+    "DOMActivate"
+  ]
+}
+
+},{}],45:[function(require,module,exports){
+console.log(mochaPhantomJS);
+
+describe('after first mouseout event', function(done){
   before(function(done){
-    targets = document.getElementsByClassName("target");
-    // target 1 is in top left; target 3 bottom middle
-    target1 = document.getElementById("target1");
-    target1Rect = target1.getBoundingClientRect();
+    // triggerEvent(target3, 'mouseout')
+    
+    eve.emit(target3, 'mouseout');
 
-    target3 = document.getElementById("target3");
-    target3Rect = target3.getBoundingClientRect();
-
-    triggerEvent(target3, 'mouseover');
-
-    tooltip = document.getElementsByClassName("tooltip")[1];
-    tooltipRect = tooltip.getBoundingClientRect();
-
-    done();
+    done()
   });
 
+  it('should work', function(done){
+    this.timeout(600);
+    var displayStyle = tooltip.style.display;
+    var tooltips = document.getElementsByClassName("tooltip");
+
+
+    console.log(displayStyle, "logged it"); 
+
+    expect(tooltips.length).to.equal(1);
+
+    done()
+  })
+});
+},{}],46:[function(require,module,exports){
+describe('after first mouseOver', function(){
   it('should place a tooltip div just above moused over element', function(done){
     var closenessOnBottomOfTarget = target3Rect.top - tooltipRect.bottom;
     var isJustUnder = closenessOnBottomOfTarget > 0 && closenessOnBottomOfTarget < 20; 
@@ -7035,25 +7319,58 @@ describe('after first mouseOver', function(){
 
     done();
   });
-
-  it('should place tooltip div underneath if viewport prevents placing above', function(done){
-    triggerEvent(target3, 'mouseout');
-    triggerEvent(target1, 'mouseover');
-
-    // tooltip = document.getElementsByClassName("tooltip")[1];
-    // tooltipRect = tooltip.getBoundingClientRect();
-
-    done();
-
-  });
 });
 
-},{"../setup.js":42}],42:[function(require,module,exports){
+},{}],47:[function(require,module,exports){
 (function (process,global){
 process.env.NODE_ENV = 'test';
-
+var eve = require('dom-events');
 var chai = require('chai');
 
+global.eve = eve;
 global.expect = chai.expect;
+
+global.triggerEvent = function triggerEvent(target, eventName){
+  var event = document.createEvent('Event');
+  event.initEvent(eventName, true, true);
+  target.dispatchEvent(event);
+}
+
+before(function(done){
+  global.targets = document.getElementsByClassName("target");
+  // target 1 is in top left; target 3 bottom middle
+  global.target1 = document.getElementById("target1");
+  global.target1Rect = target1.getBoundingClientRect();
+  global.target3 = document.getElementById("target3");
+  global.target3Rect = target3.getBoundingClientRect();
+
+  // triggerEvent(target3, 'mouseover');
+  eve.emit(target3, 'mouseover');
+
+  global.tooltip = document.getElementsByClassName("tooltip")[1];
+  global.tooltipRect = tooltip.getBoundingClientRect();
+
+  done();
+});
+
+var stringify = JSON.stringify;
+
+before(function() {
+  JSON.stringify = function(obj) {
+    var seen = [];
+
+    return stringify(obj, function(key, val) {
+     if (typeof val === "object") {
+        if (seen.indexOf(val) >= 0) { return; }
+        seen.push(val);
+      }
+      return val;
+    });
+  };
+});
+
+after(function() {
+    JSON.stringify = stringify;
+});
 }).call(this,require('_process'),typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"_process":6,"chai":7}]},{},[1]);
+},{"_process":6,"chai":7,"dom-events":41}]},{},[1]);
