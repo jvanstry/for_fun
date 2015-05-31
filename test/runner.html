@@ -5,11 +5,13 @@
         <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <link rel="stylesheet" href="../node_modules/mocha/mocha.css" />
+        <link rel="stylesheet" href="../dist/style.css" />
     </head>
     <body>
         <script src="../node_modules/should/should.js"></script> 
         <script src="../node_modules/mocha/mocha.js"></script> 
-        <script>mocha.setup('bdd')</script> 
+        <script>mocha.setup('bdd')</script>
+        <script src="../dist/bundle.js"></script> 
         <script src="./test-bundle.js"></script>  
         <script>
             if (window.mochaPhantomJS) {
@@ -18,5 +20,25 @@
                 mocha.run();
             }
         </script>
+
+        <div id="panel">
+        <span id="target1" class="target" data-info="Information for target1">
+        target 1
+        </span>
+        <span id="target2" class="target" data-info="Information for target2">
+            target 2
+        </span>
+        <div id="target3" class="target" data-info="Information for target3">
+            target 3
+        </div>
+        </div>
+
+    <div class="tooltip" id="init-tooltip">
+      Tooltip info goes here
+    </div>
+
+    <div id="event-list">
+    </div>
+  </body>
     </body>
 </html>

@@ -1,6 +1,6 @@
 (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
-require('./client/part-1.js')
-},{"./client/part-1.js":43}],2:[function(require,module,exports){
+require('./client/mouse-events.js');
+},{"./client/mouse-events.js":41}],2:[function(require,module,exports){
 /*!
  * The buffer module from node.js, for the browser.
  *
@@ -6980,168 +6980,80 @@ Library.prototype.test = function (obj, type) {
 };
 
 },{}],41:[function(require,module,exports){
-/*!
-  * domready (c) Dustin Diaz 2014 - License MIT
-  */
-!function (name, definition) {
-
-  if (typeof module != 'undefined') module.exports = definition()
-  else if (typeof define == 'function' && typeof define.amd == 'object') define(definition)
-  else this[name] = definition()
-
-}('domready', function () {
-
-  var fns = [], listener
-    , doc = document
-    , hack = doc.documentElement.doScroll
-    , domContentLoaded = 'DOMContentLoaded'
-    , loaded = (hack ? /^loaded|^c/ : /^loaded|^i|^c/).test(doc.readyState)
-
-
-  if (!loaded)
-  doc.addEventListener(domContentLoaded, listener = function () {
-    doc.removeEventListener(domContentLoaded, listener)
-    loaded = 1
-    while (listener = fns.shift()) listener()
-  })
-
-  return function (fn) {
-    loaded ? setTimeout(fn, 0) : fns.push(fn)
-  }
-
-});
-
-},{}],42:[function(require,module,exports){
-// $(document).ready(function(){
-//   partOne();
-
-
-// })
-var domready = require("domready");
-
-domready(function () {
-  exports.hi = "Hello, World";
-});
-
-
-// function partOne() {
-//   $('.target').mouseover(function(e){
-//     var $elementMousedOver = $(this);
-//     var info = $elementMousedOver.data('info');
-
-//     var $tooltip = $($('.tooltip')[0]);
-//     $tooltip.text(info);
-
-//     var position = $elementMousedOver.position();
-
-//     $tooltip.css({
-//       position:  'absolute',
-//       top:       position.top + 2 * $elementMousedOver.height(),
-//       left:      position.left
-//     });
-
-//     $elementMousedOver.after($tooltip);
-//     $tooltip.show();
-
-//     var timeOfInitialDisplay = Date.now();
-
-//     $elementMousedOver.mouseout(function(e2){
-//       $tooltip.hide();
-//       var timeDisplayed = Date.now() - timeOfInitialDisplay;
-//       var targetId = $(this).attr("id");
-
-//       var newItem = new ListItem(targetId, timeDisplayed, info);
-
-//       displayEvents.push(newItem);
-
-//       displayEvents.sort(function(first, second){
-//         if(first.timeDisplayed > second.timeDisplayed) {
-//           return -1;
-//         }else if (second.timeDisplayed > first.timeDisplayed) {
-//           return 1;
-//         }
-
-//         return 0;
-//       });
-
-//       $('.eventStrings').remove();
-
-//       displayEvents.forEach(function(el, i){
-//         el.appendToDom();
-//       });
-
-//       $('.bluetrue').css('color', 'blue');
-//     });
-//   });
-// };
-
-// function ListItem(target, timeDisplayed, data) {
-//   this.target = target;
-//   this.timeDisplayed = timeDisplayed;
-//   this.data = data;
-//   this.blue = timeDisplayed > 1200;
-
-//   this.htmlString = '<p class="eventStrings"><span class="blue' + this.blue + '">' 
-//     + this.timeDisplayed + '</span>ms,' + this.target + ' ' + this.data + '</p>';
-// };
-
-// ListItem.prototype.toDomElement = function(){
-//   return $(this.htmlString);
-// }
-
-// ListItem.prototype.appendToDom = function() {
-//   var jqueryObj = $(this.htmlString);
-
-//   $('#event-list').appendTo(jqueryObj);
-// }
-
-},{"domready":41}],43:[function(require,module,exports){
 require('../setup.js');
-var hi = require('../../public/javascripts/application.js');
-// var phantom = require('node-phantom');
 
-// var webpage = mochaPhantomJS.create();
+function triggerEvent(target, eventName){
+  var event = document.createEvent('Event');
+  event.initEvent(eventName, true, true);
+  target.dispatchEvent(event);
+}
 
+var targets, target1, target1Rect, target3, target3Rect;
 
+describe('after first mouseOver', function(){
+  var tooltip, tooltipRect;
 
-describe('A test', function(){
+  before(function(done){
+    targets = document.getElementsByClassName("target");
+    // target 1 is in top left; target 3 bottom middle
+    target1 = document.getElementById("target1");
+    target1Rect = target1.getBoundingClientRect();
 
-  it('should wire up', function(done){
-    expect(hi.hi).to.equal("Hello, World");
+    target3 = document.getElementById("target3");
+    target3Rect = target3.getBoundingClientRect();
+
+    triggerEvent(target3, 'mouseover');
+
+    tooltip = document.getElementsByClassName("tooltip")[1];
+    tooltipRect = tooltip.getBoundingClientRect();
+
     done();
   });
 
-  it('should run', function(done){
-    poop(15);
+  it('should place a tooltip div just above moused over element', function(done){
+    var closenessOnBottomOfTarget = target3Rect.top - tooltipRect.bottom;
+    var isJustUnder = closenessOnBottomOfTarget > 0 && closenessOnBottomOfTarget < 20; 
 
-    expect(window.number).to.equal(15);
+    expect(isJustUnder).to.be.true;
+
     done();
-  })
+  });
 
+  it('should center the tooltip div horizontally', function(done){
+    var leftOverflow = target3Rect.left - tooltipRect.left;
+    var rightOverflow = tooltipRect.right - target3Rect.right;
 
-    // webpage.open(indexURL, function(status){
-    //   it('should add a test', function(done){
-    //     var helloString = webpage.evaluate(function(){
-    //       return "HELLO";
-    //      });
+    var isMostlyCentered = Math.abs(leftOverflow - rightOverflow) < 5
 
-    //     expect(helloString).to.equal("HELLO");
-    //   });    
-    // })
+    expect(isMostlyCentered).to.be.true;
+    done();
+  });
+
+  it('should change innerText of tooltip to data-info attribute', function(done){
+    var message = tooltip.innerText;
+    expect(message).to.equal("Information for target3");
+
+    done();
+  });
+
+  it('should place tooltip div underneath if viewport prevents placing above', function(done){
+    triggerEvent(target3, 'mouseout');
+    triggerEvent(target1, 'mouseover');
+
+    // tooltip = document.getElementsByClassName("tooltip")[1];
+    // tooltipRect = tooltip.getBoundingClientRect();
+
+    done();
+
+  });
 });
 
-function poop(number){
-  window.number = number;
-}
-},{"../../public/javascripts/application.js":42,"../setup.js":44}],44:[function(require,module,exports){
+},{"../setup.js":42}],42:[function(require,module,exports){
 (function (process,global){
 process.env.NODE_ENV = 'test';
 
 var chai = require('chai');
 
 global.expect = chai.expect;
-
-
-
 }).call(this,require('_process'),typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
 },{"_process":6,"chai":7}]},{},[1]);
