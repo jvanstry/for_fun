@@ -6,7 +6,6 @@
     "start": "node app.js"
   },
   "dependencies": {
-    "domready": "^1.0.8",
     "ejs": "*",
     "express": "3.4.3"
   },

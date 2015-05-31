@@ -4,7 +4,7 @@ var mochaPhantomJS = require('gulp-mocha-phantomjs');
 var rename = require('gulp-rename');
 var source = require('vinyl-source-stream');
 
-var clientScripts = './public/javascripts/*.js';
+var clientScripts = ['./public/javascripts/*.js', './public/main.js'];
 var testScripts = './test/client/*.js';
 var clientEntry = './public/main.js';
 var testEntry = './test/main.js';
